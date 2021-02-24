@@ -1,5 +1,5 @@
-## Pretrained Checkpoints
-[YOLOv5s](https://drive.google.com/file/d/1MA5UnjBiQ1bdLmdpAZX0FJubKUEnQQ1f/view?usp=sharing) 
+## Download model trained on crowd human using yolov5(m) architeture
+[YOLOv5m-crowd-human](https://drive.google.com/file/d/1MA5UnjBiQ1bdLmdpAZX0FJubKUEnQQ1f/view?usp=sharing) 
 
 
 ## Training
