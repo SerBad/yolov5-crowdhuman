@@ -1,12 +1,7 @@
+
 #!/bin/bash
-# Download latest models from https://github.com/ultralytics/yolov5/releases
-# Usage:
-#    $ bash weights/download_weights.sh
 
-python - <<EOF
-from utils.google_utils import attempt_download
+# use following link to download the weights
 
-for x in ['s', 'm', 'l', 'x']:
-    attempt_download(f'yolov5{x}.pt')
+# https://drive.google.com/file/d/1gglIwqxaH2iTvy6lZlXuAcMpd_U0GCUb/view?usp=sharing
 
-EOF
