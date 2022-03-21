@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 from pathlib import Path
 
@@ -13,6 +14,8 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
+import json
+import shutil
 
 
 def detect(save_img=False):
@@ -59,6 +62,8 @@ def detect(save_img=False):
     # Run inference
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+
+    json_data = []
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -78,7 +83,8 @@ def detect(save_img=False):
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
-
+        box_data = {}
+        # print(pred)
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -100,18 +106,28 @@ def detect(save_img=False):
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
+                haveHeader = True
+                # print(det)
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
+                    label = f'{names[int(cls)]} {conf:.2f}'
+                    # print(names[int(cls)], f'{conf:.2f}')
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                        # line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                        line = (int(cls), label, int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3]))
                         with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
+                            f.write(('%s ' * len(line)).rstrip() % line + '\n')
 
+                    # print(int(xyxy[0]))
                     if save_img or view_img:  # Add bbox to image
-                        label = f'{names[int(cls)]} {conf:.2f}'
+
+                        # print(label)
                         if opt.heads or opt.person:
                             if 'head' in label and opt.heads:
+                                # image	face[top, right, bottom, left]
+                                box_data = {"img_name": p.name, "headers": (
+                                    (int(xyxy[1]), int(xyxy[2]), int(xyxy[3]), int(xyxy[0])))}
                                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                             if 'person' in label and opt.person:
                                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
@@ -143,6 +159,19 @@ def detect(save_img=False):
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
                     vid_writer.write(im0)
 
+        if len(box_data) == 0:
+            noneBodyRoot = source + "_NoneBodyRoot"
+            if not os.path.exists(noneBodyRoot):
+                os.makedirs(noneBodyRoot)
+            shutil.copyfile(path, os.path.join(noneBodyRoot, Path(path).name))
+        else:
+            json_data.append(box_data)
+
+    fileName = source + os.sep + "scoreJson.json"
+
+    with open(fileName, 'w') as f:
+        json.dump({"faces": json_data}, f)
+
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         print(f"Results saved to {save_dir}{s}")
@@ -152,7 +181,7 @@ def detect(save_img=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='crowdhuman_yolov5m.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
@@ -172,7 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--heads', action='store_true', help='displays only person')
     opt = parser.parse_args()
     print(opt)
-    check_requirements()
+    # check_requirements()
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
