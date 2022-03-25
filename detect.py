@@ -79,7 +79,7 @@ def detect(save_img=False):
         # Apply NMS
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
         t2 = time_synchronized()
-
+        print(path)
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
@@ -106,7 +106,13 @@ def detect(save_img=False):
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
-                haveHeader = True
+                width = im0.shape[1]
+                height = im0.shape[0]
+                left = width
+                top = height
+                right = 0
+                bottom = 0
+                have_head = False
                 # print(det)
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
@@ -119,6 +125,7 @@ def detect(save_img=False):
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%s ' * len(line)).rstrip() % line + '\n')
 
+                    # print(int(xyxy[1]), int(xyxy[2]), int(xyxy[3]), int(xyxy[0]), label)
                     # print(int(xyxy[0]))
                     if save_img or view_img:  # Add bbox to image
 
@@ -126,13 +133,19 @@ def detect(save_img=False):
                         if opt.heads or opt.person:
                             if 'head' in label and opt.heads:
                                 # image	face[top, right, bottom, left]
-                                box_data = {"img_name": p.name, "headers": (
-                                    (int(xyxy[1]), int(xyxy[2]), int(xyxy[3]), int(xyxy[0])))}
-                                plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                                have_head = True
+                                top = min(top, int(xyxy[1]))
+                                bottom = max(bottom, int(xyxy[3]))
+                                left = min(left, int(xyxy[0]))
+                                right = max(right, int(xyxy[2]))
+                                plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=10)
                             if 'person' in label and opt.person:
                                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         else:
                             plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+
+                if have_head:
+                    box_data = {"img_name": p.name,  "headers": (top, right, bottom, left)}
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
@@ -167,7 +180,7 @@ def detect(save_img=False):
         else:
             json_data.append(box_data)
 
-    fileName = source + os.sep + "scoreJson.json"
+    fileName = source + os.sep + "headJson.json"
 
     with open(fileName, 'w') as f:
         json.dump({"faces": json_data}, f)
@@ -206,7 +219,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
             for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
-                detect()
+                detect(True)
                 strip_optimizer(opt.weights)
         else:
-            detect()
+            detect(True)
